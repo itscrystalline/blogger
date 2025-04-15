@@ -2,17 +2,17 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use url::{ParseError, Url};
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct ProjectBuilder {
     title: Option<String>,
     description: Option<String>,
     tags: Vec<String>,
     links: Vec<Link>,
 }
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct LinkBuilder {
     name: Option<String>,
-    url: Option<String>,
+    url: Option<Url>,
 }
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ProjectBuilderError {
@@ -31,8 +31,6 @@ pub enum LinkBuilderError {
     NoName,
     #[error("Missing URL")]
     NoUrl,
-    #[error("Invalid URL {given} (error: {source:?})")]
-    InvalidUrl { given: String, source: ParseError },
 }
 
 impl ProjectBuilder {
@@ -40,17 +38,21 @@ impl ProjectBuilder {
         Self::default()
     }
 
-    pub fn title(self, title: &str) -> Self {
-        todo!()
+    pub fn title(mut self, title: &str) -> Self {
+        self.title = Some(title.to_string());
+        self
     }
-    pub fn description(self, description: &str) -> Self {
-        todo!()
+    pub fn description(mut self, description: &str) -> Self {
+        self.description = Some(description.to_string());
+        self
     }
-    pub fn add_tag(self, tag: &str) -> Self {
-        todo!()
+    pub fn add_tag(mut self, tag: &str) -> Self {
+        self.tags.push(tag.to_string());
+        self
     }
-    pub fn add_link(self, link: Link) -> Self {
-        todo!()
+    pub fn add_link(mut self, link: Link) -> Self {
+        self.links.push(link);
+        self
     }
 
     pub fn bulid(self) -> Result<Project, (Self, ProjectBuilderError)> {
@@ -72,13 +74,24 @@ impl ProjectBuilder {
                     links,
                 })
             }
-            Self { ref title, .. } if title.is_none() => Err((self, ProjectBuilderError::NoTitle)),
             Self {
-                ref description, ..
-            } if description.is_none() => Err((self, ProjectBuilderError::NoTitle)),
-            Self { ref tags, .. } if tags.is_empty() => Err((self, ProjectBuilderError::NoTitle)),
-            Self { ref links, .. } if links.is_empty() => Err((self, ProjectBuilderError::NoTitle)),
-            _ => unreachable!(),
+                ref title,
+                ref description,
+                ref tags,
+                ref links,
+            } => {
+                if title.is_none() {
+                    Err((self, ProjectBuilderError::NoTitle))
+                } else if description.is_none() {
+                    Err((self, ProjectBuilderError::NoDescription))
+                } else if tags.is_empty() {
+                    Err((self, ProjectBuilderError::NoTags))
+                } else if links.is_empty() {
+                    Err((self, ProjectBuilderError::NoLinks))
+                } else {
+                    unreachable!()
+                }
+            }
         }
     }
 }
@@ -94,19 +107,33 @@ impl LinkBuilder {
         }
     }
 
-    fn name(self, name: &str) -> Self {
-        todo!()
+    fn name(mut self, name: &str) -> Self {
+        self.name = Some(name.to_string());
+        self
     }
-    fn url(self, url: &str) -> Self {
-        todo!()
+    fn url(mut self, url: Url) -> Self {
+        self.url = Some(url);
+        self
     }
 
     fn bulid(self) -> Result<Link, (Self, LinkBuilderError)> {
-        todo!()
+        match self {
+            LinkBuilder {
+                name: Some(name),
+                url: Some(url),
+            } if !name.is_empty() => Ok(Link { name, url }),
+            LinkBuilder {
+                name: Some(ref name),
+                ..
+            } if name.is_empty() => Err((self, LinkBuilderError::NoName)),
+            LinkBuilder { name: None, .. } => Err((self, LinkBuilderError::NoName)),
+            LinkBuilder { url: None, .. } => Err((self, LinkBuilderError::NoUrl)),
+            _ => unreachable!(),
+        }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Project {
     title: String,
     description: String,
@@ -114,7 +141,7 @@ pub struct Project {
     links: Vec<Link>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Link {
     name: String,
     url: Url,
@@ -127,7 +154,7 @@ mod tests {
     fn valid_link() {
         let link = LinkBuilder::new()
             .name("Google")
-            .url("https://google.com")
+            .url(Url::parse("https://google.com").unwrap())
             .bulid();
         assert!(link.is_ok());
         let res = link.unwrap();
@@ -136,7 +163,9 @@ mod tests {
     }
     #[test]
     fn no_name_link() {
-        let link = LinkBuilder::new().url("https://google.com").bulid();
+        let link = LinkBuilder::new()
+            .url(Url::parse("https://google.com").unwrap())
+            .bulid();
         assert!(link.is_err());
 
         assert!(matches!(link, Err((_, LinkBuilderError::NoName))));
@@ -145,20 +174,11 @@ mod tests {
     fn empty_name_link() {
         let link = LinkBuilder::new()
             .name("")
-            .url("https://google.com")
+            .url(Url::parse("https://google.com").unwrap())
             .bulid();
         assert!(link.is_err());
 
         assert!(matches!(link, Err((_, LinkBuilderError::NoName))));
-    }
-    #[test]
-    fn invalid_url_link() {
-        let link = LinkBuilder::new().name("Invalid").url("://hello").bulid();
-        assert!(link.is_err());
-
-        assert!(
-            matches!(link, Err((_, LinkBuilderError::InvalidUrl { given, .. })) if given == "://hello")
-        )
     }
 
     #[test]
@@ -202,7 +222,7 @@ mod tests {
         ));
     }
     #[test]
-    fn no_links_project() {
+    fn no_tags_project() {
         let proj = ProjectBuilder::new()
             .title("hi")
             .description("hello")
@@ -210,23 +230,23 @@ mod tests {
         let proj_with_others = ProjectBuilder::new()
             .title("hi")
             .description("hello")
-            .add_tag("meow")
-            .bulid();
-
-        assert!(matches!(proj, Err((_, ProjectBuilderError::NoLinks))));
-        assert!(matches!(
-            proj_with_others,
-            Err((_, ProjectBuilderError::NoLinks))
-        ));
-    }
-    #[test]
-    fn no_tags_project() {
-        let proj = ProjectBuilder::new()
-            .title("hi")
-            .description("hello")
             .add_link(LinkBuilder::sample())
             .bulid();
 
         assert!(matches!(proj, Err((_, ProjectBuilderError::NoTags))));
+        assert!(matches!(
+            proj_with_others,
+            Err((_, ProjectBuilderError::NoTags))
+        ));
+    }
+    #[test]
+    fn no_links_project() {
+        let proj = ProjectBuilder::new()
+            .title("hi")
+            .description("hello")
+            .add_tag("meow")
+            .bulid();
+
+        assert!(matches!(proj, Err((_, ProjectBuilderError::NoLinks))));
     }
 }
