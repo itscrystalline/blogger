@@ -6,14 +6,16 @@ pub enum ProjectBuilderError {
     Title = 1,
     #[error("Missing Description")]
     Description = 2,
+    #[error("Missing Cover")]
+    Cover = 4,
     #[error("Missing at least one Tag")]
-    Tags = 4,
+    Tags = 8,
     #[error("Missing at least one Link")]
-    Links = 8,
+    Links = 16,
     #[error("Duplicate Tags")]
-    DuplicateTags = 16,
+    DuplicateTags = 32,
     #[error("Duplicate Links")]
-    DuplicateLinks = 32,
+    DuplicateLinks = 64,
 }
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum LinkBuilderError {

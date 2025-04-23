@@ -16,4 +16,24 @@
   scripts.test-codecov.exec = ''
     cargo tarpaulin --color always --skip-clean
   '';
+
+  services.mysql = {
+    enable = true;
+    importTimeZones = true;
+    ensureUsers = [
+      {
+        name = "blogger";
+        password = "blogger";
+        ensurePermissions = {
+          "blogger.*" = "ALL PRIVILEGES";
+        };
+      }
+    ];
+    initialDatabases = [
+      {
+        name = "blogger";
+        schema = ./schema.sql;
+      }
+    ];
+  };
 }

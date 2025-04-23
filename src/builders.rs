@@ -7,6 +7,7 @@ use crate::{Link, LinkBuilderError, Project, ProjectBuilderError};
 pub struct ProjectBuilder {
     title: Option<String>,
     description: Option<String>,
+    cover: Option<Url>,
     tags: Vec<String>,
     links: Vec<Link>,
 }
@@ -27,6 +28,10 @@ impl ProjectBuilder {
     }
     pub fn description(&mut self, description: &str) -> &mut Self {
         _ = self.description.replace(description.to_string());
+        self
+    }
+    pub fn cover(&mut self, cover_link: Url) -> &mut Self {
+        _ = self.cover.replace(cover_link);
         self
     }
     pub fn add_tag(&mut self, tag: &str) -> &mut Self {
@@ -50,6 +55,7 @@ impl ProjectBuilder {
         let Self {
             title,
             description,
+            cover,
             tags,
             links,
         } = self;
@@ -57,6 +63,7 @@ impl ProjectBuilder {
             Ok(Project {
                 title: title.as_ref().unwrap().clone(),
                 description: description.as_ref().unwrap().clone(),
+                cover: cover.clone(),
                 tags: tags.clone(),
                 links: links.clone(),
             })
@@ -64,6 +71,8 @@ impl ProjectBuilder {
             Err(ProjectBuilderError::Title)
         } else if description.is_none() {
             Err(ProjectBuilderError::Description)
+        } else if cover.is_none() {
+            Err(ProjectBuilderError::Cover)
         } else if tags.is_empty() {
             Err(ProjectBuilderError::Tags)
         } else if links.is_empty() {
@@ -81,7 +90,7 @@ impl LinkBuilder {
     pub fn sample() -> Link {
         Link {
             name: "Example".to_string(),
-            url: Url::parse("https://example.com").unwrap(),
+            link: Url::parse("https://example.com").unwrap(),
         }
     }
 
@@ -101,7 +110,7 @@ impl LinkBuilder {
                 url: Some(url),
             } if !name.is_empty() => Ok(Link {
                 name: name.clone(),
-                url: url.clone(),
+                link: url.clone(),
             }),
             LinkBuilder {
                 name: Some(name), ..
@@ -123,6 +132,7 @@ impl Edit for Project {
         ProjectBuilder {
             title: Some(self.title),
             description: Some(self.description),
+            cover: self.cover,
             tags: self.tags,
             links: self.links,
         }
@@ -134,7 +144,7 @@ impl Edit for Link {
     fn edit(self) -> Self::Builder {
         LinkBuilder {
             name: Some(self.name),
-            url: Some(self.url),
+            url: Some(self.link),
         }
     }
 }

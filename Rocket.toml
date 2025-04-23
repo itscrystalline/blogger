@@ -1,0 +1,2 @@
+[default.databases.blogger]
+url = "mariadb://localhost:3306/?user=blogger&password=blogger"
